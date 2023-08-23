@@ -114,7 +114,12 @@ namespace AssetRipper.Processing.AnimationClips
 
 						AddTransformCurve(frame.Time, binding.TransformType(), curveValues, inSlopeValues, outSlopeValues, 0, path);
 					}
-					else if (binding.CustomType == (byte)BindingCustomType.None)
+					else if(binding.IsPPtrCurve == 1)
+					{
+						AddCustomCurve(bindings, binding, path, frame.Time, frame.Curves[curveIndex].Value);
+						curveIndex = GetNextCurve(frame, curveIndex);
+					}
+					else// if (binding.CustomType == (byte)BindingCustomType.None)
 					{
 						if (frameIndex0)
 						{
@@ -122,11 +127,6 @@ namespace AssetRipper.Processing.AnimationClips
 							continue;
 						}
 						AddDefaultCurve(binding, path, frame.Time, frame.Curves[curveIndex].Value);
-						curveIndex = GetNextCurve(frame, curveIndex);
-					}
-					else
-					{
-						AddCustomCurve(bindings, binding, path, frame.Time, frame.Curves[curveIndex].Value);
 						curveIndex = GetNextCurve(frame, curveIndex);
 					}
 				}
@@ -232,7 +232,24 @@ namespace AssetRipper.Processing.AnimationClips
 					break;
 
 				default:
-					string attribute = m_customCurveResolver.ToAttributeName((BindingCustomType)binding.CustomType, binding.Attribute, path);
+					string propertyName = string.Empty;
+					if (binding.CustomType == (byte)BindingCustomType.None)
+					{
+						if (binding.Script.TryGetAsset(m_clip.Collection) is IMonoScript script)
+						{
+							m_checksumCache.Add(script);
+						}
+						
+						if (!m_checksumCache.TryGetPath(binding.Attribute, out propertyName))
+						{
+							propertyName = ScriptPropertyPrefix + binding.Attribute;
+						}
+					}
+					else
+					{
+						propertyName = m_customCurveResolver.ToAttributeName((BindingCustomType)binding.CustomType, binding.Attribute, path);
+					}
+
 					if (binding.IsPPtrCurve())
 					{
 						if (!ProcessStreams_frameIndex0)
@@ -240,12 +257,12 @@ namespace AssetRipper.Processing.AnimationClips
 							time = 0.0f;
 						}
 
-						CurveData curve = new CurveData(path, attribute, binding.GetClassID(), binding.Script.TryGetAsset(m_clip.Collection));
+						CurveData curve = new CurveData(path, propertyName, binding.GetClassID(), binding.Script.TryGetAsset(m_clip.Collection));
 						AddPPtrKeyframe(curve, bindings, time, (int)value);
 					}
 					else if (ProcessStreams_frameIndex0)
 					{
-						CurveData curve = new CurveData(path, attribute, binding.GetClassID(), binding.Script.TryGetAsset(m_clip.Collection));
+						CurveData curve = new CurveData(path, propertyName, binding.GetClassID(), binding.Script.TryGetAsset(m_clip.Collection));
 						AddFloatKeyframe(curve, time, value);
 					}
 					break;
